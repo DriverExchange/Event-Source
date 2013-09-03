@@ -33,14 +33,16 @@ object Events extends Controller {
     }
   }
 
-   def subscribeComet(appId: String, channelName: String) = Action { implicit request =>
+  def subscribeComet(appId: String, channelName: String) = Action { implicit request =>
     Async {
-      val callback = request.queryString.get("callback").flatMap(_.headOption).getOrElse("dxioCometCallback")
-      EventManager.listenEvents(appId, channelName).map { channel =>
-        Ok.stream(channel &> Enumeratee.take(1) &> Enumeratee.map(chunk => s"$callback($chunk);\r\n\r\n"))
-          .withHeaders(CONTENT_TYPE -> "text/javascript")
-      }
+      val callback = request.queryString.get("callback").flatMap(_.headOption).getOrElse("callback")
+      EventManager.listenEvents(appId, channelName)
+        .map(_
+          .through(Enumeratee.take(1))
+          .through(Enumeratee.map(chunk => s"$callback($chunk);\r\n")))
+        .flatMap(_(Iteratee.consume()))
+        .flatMap(_.run)
+        .map(Ok(_).withHeaders(CONTENT_TYPE -> "text/javascript"))
     }
   }
-
 }
