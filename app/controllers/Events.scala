@@ -7,6 +7,7 @@ import play.api.libs.EventSource
 import play.api.libs.Comet
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.iteratee._
+import play.api.libs.json._
 
 import jobs._
 
@@ -17,7 +18,7 @@ object Events extends Controller {
       .flatMap(_.get("message"))
       .flatMap(_.headOption)
       .map { message =>
-        EventManager.event(appId, channelName, message)
+        EventManager.event(appId, channelName, Json.parse(message))
         Ok
       } getOrElse BadRequest
   }

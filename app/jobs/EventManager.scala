@@ -3,6 +3,7 @@ package jobs
 import play.api.libs.json._
 import play.api.libs.concurrent.Akka
 import play.api.libs.iteratee._
+import play.api.libs.json._
 
 import akka.actor.{ Actor, Props }
 import scala.concurrent.{ Future, Promise }
@@ -14,14 +15,14 @@ case class ChannelId(appId: String, channelName: String) {
 trait Channels {
   import scala.collection.mutable.Map
 
-  type BroadcastChannel = (Enumerator[String], Concurrent.Channel[String])
+  type BroadcastChannel = (Enumerator[JsValue], Concurrent.Channel[JsValue])
 
   private val channels = Map[String, BroadcastChannel]()
 
   private def selectChannel(channelId: ChannelId): BroadcastChannel = {
     channels.get(channelId.toString) match {
       case None =>
-        val channel = Concurrent.broadcast[String]
+        val channel = Concurrent.broadcast[JsValue]
         channels(channelId.toString) = channel
         channel
       case Some(channel) =>
@@ -29,8 +30,8 @@ trait Channels {
     }
   }
 
-  def pushEvent(channelId: ChannelId)(event: String): Unit = selectChannel(channelId)._2.push(event)
-  def listenEvents(channelId: ChannelId): Enumerator[String] = selectChannel(channelId)._1
+  def pushEvent(channelId: ChannelId)(data: JsValue): Unit = selectChannel(channelId)._2.push(data)
+  def listenEvents(channelId: ChannelId): Enumerator[JsValue] = selectChannel(channelId)._1
 }
 
 class EventManager extends Actor with Channels {
@@ -47,16 +48,16 @@ object EventManager {
 
   private val actor = Akka.system.actorOf(Props(new EventManager()))
 
-  final case class NewEvent(channelId: ChannelId, data: String)
-  final case class Connect(channelId: ChannelId, selectedChannel: Promise[Enumerator[String]])
+  final case class NewEvent(channelId: ChannelId, data: JsValue)
+  final case class Connect(channelId: ChannelId, selectedChannel: Promise[Enumerator[JsValue]])
 
-  def event(appId: String, channelName: String, data: String): Unit = {
+  def event(appId: String, channelName: String, data: JsValue): Unit = {
     val channelId = ChannelId(appId, channelName)
     actor ! NewEvent(channelId, data)
   }
 
-  def listenEvents(appId: String, channelName: String): Future[Enumerator[String]] = {
-    val channel = Promise[Enumerator[String]]()
+  def listenEvents(appId: String, channelName: String): Future[Enumerator[JsValue]] = {
+    val channel = Promise[Enumerator[JsValue]]()
     val channelId = ChannelId(appId, channelName)
     actor ! Connect(channelId, channel)
     channel.future
