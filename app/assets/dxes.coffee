@@ -18,10 +18,10 @@ loadJSONP = do ->
 
 		document.getElementsByTagName("head")[0].appendChild(script)
 
-window.dxes = (appId) ->
+window.dxes = (baseUrl, appId) ->
 
 	subscribeSSE = (channelName, callback) ->
-		productEvents = new EventSource("http://localhost:9001/#{appId}/events/#{channelName}")
+		productEvents = new EventSource("#{baseUrl}/#{appId}/events/#{channelName}")
 		productEvents.addEventListener "message", (event) ->
 			data = null
 			eval("data = #{event.data};")
@@ -30,9 +30,8 @@ window.dxes = (appId) ->
 	subscribeJsonp = (channelName, callback) ->
 		timeoutId = null
 		poll = ->
-			script = document.getElementById("dxesPollLoaded")
 			loadJSONP
-				url: "http://localhost:9001/#{appId}/events/#{channelName}/comet"
+				url: "#{baseUrl}/#{appId}/events/#{channelName}/comet"
 				callback: (status, data) ->
 					callback(data) if status == "success"
 					clearTimeout(timeoutId)
