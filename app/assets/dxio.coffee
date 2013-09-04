@@ -1,40 +1,51 @@
+
+loadJSONP = do ->
+	unique = 0;
+
+	(options) ->
+
+		name = "_jsonp_" + unique++;
+		url = options.url + (if options.url.indexOf("?") >= 0 then "&" else "?") + "callback=#{name}"
+
+		script = document.createElement('script');
+		script.type = 'text/javascript';
+		script.src = url;
+
+		window[name] = (data) ->
+			options.callback(data)
+			document.getElementsByTagName('head')[0].removeChild(script)
+			script = null
+			delete window[name]
+
+		document.getElementsByTagName('head')[0].appendChild(script)
+
 window.dxio = (appId) ->
 
-	subscribeSSE: (channelName, callback) ->
+	subscribeSSE = (channelName, callback) ->
 		productEvents = new EventSource("http://localhost:9001/#{appId}/events/#{channelName}")
 		productEvents.addEventListener "message", (event) ->
 			data = null
 			eval("data = #{event.data};")
 			callback(data)
 
-	subscribeComet: (channelName, callback) ->
+	subscribeJsonp = (channelName, callback) ->
 		polling = false
 		poll = ->
 			polling = true
-			$.ajax
-				type: "get"
+			loadJSONP
 				url: "http://localhost:9001/#{appId}/events/#{channelName}/comet"
-				dataType: "jsonp"
-				jsonp: "callback"
-				success: (data) ->
+				callback: (data) ->
 					callback(data)
-				complete: (jqXHR, textStatus) ->
-					$("body").prepend("<div>#{textStatus}</div>");
-					if textStatus == "timeout"
-						alreadyPolling = false
-						if !alreadyPolling
-							poll()
-							alreadyPolling = true
-					else if textStatus == "success" or textStatus == "notmodified"
-						poll()
-					else
-						polling = false
+					poll()
 		poll()
 
+	subscribeSSE: subscribeSSE
+	subscribeJsonp: subscribeJsonp
 	subscribe: (channelName, callback) ->
 		if EventSource
-			dxio.subscribeSSE(channelName, callback)
+			subscribeSSE(channelName, callback)
 		else
-			dxio.subscribeComet(channelName, callback)
+			subscribeJsonp(channelName, callback)
+
 
 
