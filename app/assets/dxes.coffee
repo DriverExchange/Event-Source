@@ -18,7 +18,7 @@ loadJSONP = do ->
 
 		document.getElementsByTagName("head")[0].appendChild(script)
 
-window.dxio = (appId) ->
+window.dxes = (appId) ->
 
 	subscribeSSE = (channelName, callback) ->
 		productEvents = new EventSource("http://localhost:9001/#{appId}/events/#{channelName}")

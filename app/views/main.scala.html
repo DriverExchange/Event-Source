@@ -6,10 +6,10 @@
     <head>
         <title>@title</title>
         <script src="@routes.Assets.at("javascripts/jquery-1.10.2.min.js")" type="text/javascript"></script>
-        <script src="@routes.Assets.at("dxio.js")" type="text/javascript"></script>
+        <script src="@routes.Assets.at("dxes.js")" type="text/javascript"></script>
         <script type="text/javascript">
-        dxio("dx").subscribeComet("global", function(data) {
-        	console.log(data);
+        dxes("dx").subscribeComet("global", function(data) {
+        	$("body").prepend("<div>" + data.foo + "</div>")
         });
         </script>
     </head>
