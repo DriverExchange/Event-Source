@@ -18,22 +18,26 @@ loadJSONP = do ->
 
 		document.getElementsByTagName("head")[0].appendChild(script)
 
+getParams = (options) ->
+	if options.filters && options.signature
+		params = "?filters=#{options.filters}&signature=#{options.signature}"
+
 window.dxes = (baseUrl, appId) ->
 
-	subscribeSSE = (channelName, callback) ->
-		productEvents = new EventSource("#{baseUrl}/#{appId}/events/#{channelName}")
+	subscribeSSE = (options) ->
+		productEvents = new EventSource(baseUrl + "/#{appId}/events/#{options.channel}" + getParams(options))
 		productEvents.addEventListener "message", (event) ->
 			data = null
 			eval("data = #{event.data};")
-			callback(data)
+			options.received(data)
 
-	subscribeJsonp = (channelName, callback) ->
+	subscribeJsonp = (options) ->
 		timeoutId = null
 		poll = ->
 			loadJSONP
-				url: "#{baseUrl}/#{appId}/events/#{channelName}/comet"
+				url: baseUrl + "#{appId}/events/#{options.channel}/comet" + getParams(options)
 				callback: (status, data) ->
-					callback(data) if status == "success"
+					options.received(data) if status == "success"
 					clearTimeout(timeoutId)
 					poll()
 
@@ -43,11 +47,11 @@ window.dxes = (baseUrl, appId) ->
 
 	subscribeSSE: subscribeSSE
 	subscribeJsonp: subscribeJsonp
-	subscribe: (channelName, callback) ->
+	subscribe: (options) ->
 		if EventSource
-			subscribeSSE(channelName, callback)
+			subscribeSSE(options)
 		else
-			subscribeJsonp(channelName, callback)
+			subscribeJsonp(options)
 
 
 

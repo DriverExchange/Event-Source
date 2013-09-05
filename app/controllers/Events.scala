@@ -26,13 +26,30 @@ object Events extends Controller {
       } getOrElse BadRequest
   }
 
-  def subscribeSSE(appId: String, channelName: String) = Action {
-    Async {
-      EventManager.listenEvents(appId, channelName).map { chan =>
-        Ok.stream(chan &> EventSource()).withHeaders(
-          CONTENT_TYPE -> "text/event-stream",
-          "Access-Control-Allow-Origin" -> "*"
-        )
+  def subscribeSSE(appId: String, channelName: String) = Action { implicit request =>
+    if (request.queryString.get("filters").isDefined
+      && !request.queryString.get("filters").get.isEmpty
+      && !request.queryString.get("signature").isDefined) {
+      BadRequest("If 'filters' is defined, it must not be empty and there must be a 'signature'.")
+    }
+    else {
+      // TODO
+      // request.queryString.get("filters").map { filters =>
+      //   val signature = request.queryString.get("signature").get
+      //   val appSecret = "very_secret_key"
+      //   val checkSignature = Codec.md5(filters + appSecret)
+      //   if (checkSignature != signature) {
+
+      //   }
+      // }
+      Async {
+        play.Logger.info(s"SubscribeSSE: $appId, $channelName")
+        EventManager.listenEvents(appId, channelName).map { chan =>
+          Ok.stream(chan &> EventSource()).withHeaders(
+            CONTENT_TYPE -> "text/event-stream",
+            "Access-Control-Allow-Origin" -> "*"
+          )
+        }
       }
     }
   }
