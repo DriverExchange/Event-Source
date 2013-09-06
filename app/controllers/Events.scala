@@ -65,7 +65,7 @@ object Events extends Controller {
 
   def subscribe(appId: String, channelName: String, subscribeFunc: (String, String, Option[JsValue]) => Request[AnyContent] => Result) = Action { implicit request =>
     val filtersParam = request.queryString.get("filters").map(_.head)
-    val signatureParam = request.queryString.get("filters").map(_.head)
+    val signatureParam = request.queryString.get("signature").map(_.head)
     if (filtersParam.isDefined && !filtersParam.get.isEmpty && !signatureParam.isDefined) {
       BadRequest("If 'filters' is defined, it must not be empty and there must be a 'signature'.")
     }
