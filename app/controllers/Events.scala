@@ -15,6 +15,8 @@ import scala.concurrent.Future
 
 import jobs._
 
+import Play.current
+
 object Events extends Controller {
 
   def publish(appId: String, channelName: String) = Action { implicit request =>
@@ -29,11 +31,12 @@ object Events extends Controller {
 
   def getSignedFilters(filtersParam: Option[String], signatureParam: Option[String]): Option[JsValue] = {
     filtersParam.flatMap { filters =>
-      val signature = signatureParam.get
-      val appSecret = "very_secret_key"
-      val checkSignature = Codecs.md5((filters + appSecret).getBytes("UTF-8"))
-      if (checkSignature == signature) Some(Json.toJson(filters))
-      else None
+      Play.configuration.getString("appSecret").flatMap { appSecret =>
+        val signature = signatureParam.get
+        val checkSignature = Codecs.md5((filters + appSecret).getBytes("UTF-8"))
+        if (checkSignature == signature) Some(Json.toJson(filters))
+        else None
+      }
     }
   }
 
