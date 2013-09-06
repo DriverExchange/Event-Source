@@ -12,17 +12,19 @@ case class ChannelId(appId: String, channelName: String) {
   override def toString = appId + ":" + channelName
 }
 
+case class EventMessage(data: JsValue, filters: Option[JsValue] = None)
+
 trait Channels {
   import scala.collection.mutable.Map
 
-  type BroadcastChannel = (Enumerator[JsValue], Concurrent.Channel[JsValue])
+  type BroadcastChannel = (Enumerator[EventMessage], Concurrent.Channel[EventMessage])
 
   private val channels = Map[String, BroadcastChannel]()
 
   private def selectChannel(channelId: ChannelId): BroadcastChannel = {
     channels.get(channelId.toString) match {
       case None =>
-        val channel = Concurrent.broadcast[JsValue]
+        val channel = Concurrent.broadcast[EventMessage]
         channels(channelId.toString) = channel
         channel
       case Some(channel) =>
@@ -30,15 +32,15 @@ trait Channels {
     }
   }
 
-  def pushEvent(channelId: ChannelId)(data: JsValue): Unit = selectChannel(channelId)._2.push(data)
-  def listenEvents(channelId: ChannelId): Enumerator[JsValue] = selectChannel(channelId)._1
+  def pushEvent(channelId: ChannelId)(message: EventMessage): Unit = selectChannel(channelId)._2.push(message)
+  def listenEvents(channelId: ChannelId): Enumerator[EventMessage] = selectChannel(channelId)._1
 }
 
 class EventManager extends Actor with Channels {
   import EventManager._
 
   def receive = {
-    case NewEvent(channelId, data) => pushEvent(channelId)(data)
+    case NewEvent(channelId, message) => pushEvent(channelId)(message)
     case Connect(channelId, channel) => channel.success(listenEvents(channelId))
   }
 }
@@ -48,16 +50,16 @@ object EventManager {
 
   private val actor = Akka.system.actorOf(Props(new EventManager()))
 
-  final case class NewEvent(channelId: ChannelId, data: JsValue)
-  final case class Connect(channelId: ChannelId, selectedChannel: Promise[Enumerator[JsValue]])
+  final case class NewEvent(channelId: ChannelId, message: EventMessage)
+  final case class Connect(channelId: ChannelId, selectedChannel: Promise[Enumerator[EventMessage]])
 
-  def event(appId: String, channelName: String, data: JsValue): Unit = {
+  def event(appId: String, channelName: String, data: JsValue, filters: Option[JsValue]): Unit = {
     val channelId = ChannelId(appId, channelName)
-    actor ! NewEvent(channelId, data)
+    actor ! NewEvent(channelId, EventMessage(data, filters))
   }
 
-  def listenEvents(appId: String, channelName: String): Future[Enumerator[JsValue]] = {
-    val channel = Promise[Enumerator[JsValue]]()
+  def listenEvents(appId: String, channelName: String): Future[Enumerator[EventMessage]] = {
+    val channel = Promise[Enumerator[EventMessage]]()
     val channelId = ChannelId(appId, channelName)
     actor ! Connect(channelId, channel)
     channel.future
