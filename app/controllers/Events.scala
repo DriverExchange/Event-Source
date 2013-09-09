@@ -33,9 +33,9 @@ object Events extends Controller {
     }
   }
 
-  def getSignedFilters(filtersParam: Option[String], signatureParam: Option[String]): Option[JsValue] = {
+  def getSignedFilters(appId: String, filtersParam: Option[String], signatureParam: Option[String]): Option[JsValue] = {
     filtersParam.flatMap { filters =>
-      Play.configuration.getString("appSecret").flatMap { appSecret =>
+      Play.configuration.getString(s"dxes.$appId.appSecret").flatMap { appSecret =>
         val signature = signatureParam.get
         val checkSignature = Codecs.md5((filters + appSecret).getBytes("UTF-8"))
         if (checkSignature == signature) Some(Json.parse(filters))
@@ -98,7 +98,7 @@ object Events extends Controller {
     }
     else {
       if (filtersParam.isDefined) {
-        getSignedFilters(filtersParam, signatureParam)
+        getSignedFilters(appId, filtersParam, signatureParam)
           .map((filters: JsValue) => subscribeFunc(appId, channelName, Some(filters))(request))
           .getOrElse(BadRequest("The filters does not match the signature."))
       }
