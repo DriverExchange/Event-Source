@@ -21,15 +21,29 @@ import Play.current
 
 object Events extends Controller {
 
-  def publish(appId: String, channelName: String) = Action { implicit request =>
-    val messageParam = request.body.asFormUrlEncoded.get("message").headOption
-    val filtersParam = request.body.asFormUrlEncoded.get("filters").headOption
-    if (messageParam.isDefined) {
-      EventManager.event(appId, channelName, Json.parse(messageParam.get), filtersParam.map(Json.parse(_)))
-      Ok
-    }
-    else {
-      BadRequest
+  def Secured(username: String, password: String)(action: => Request[AnyContent] => Result) = Action { implicit request =>
+    request.headers.get("Authorization").flatMap { authorization =>
+      authorization.split(" ").drop(1).headOption.filter { encoded =>
+        new String(org.apache.commons.codec.binary.Base64.decodeBase64(encoded.getBytes)).split(":").toList match {
+          case u :: p :: Nil if u == username && password == p => true
+          case _ => false
+        }
+      }.map(_ => action(request))
+    } getOrElse Unauthorized.withHeaders("WWW-Authenticate" -> "Basic realm=\"Secured\"")
+  }
+
+  def publish(appId: String, channelName: String) = {
+    val appAuthToken = Play.configuration.getString(s"dxes.$appId.appAuthToken").getOrElse("")
+    Secured(appId, appAuthToken) { implicit request =>
+      val messageParam = request.body.asFormUrlEncoded.get("message").headOption
+      val filtersParam = request.body.asFormUrlEncoded.get("filters").headOption
+      if (messageParam.isDefined) {
+        EventManager.event(appId, channelName, Json.parse(messageParam.get), filtersParam.map(Json.parse(_)))
+        Ok
+      }
+      else {
+        BadRequest
+      }
     }
   }
 
