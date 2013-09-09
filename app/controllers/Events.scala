@@ -37,8 +37,6 @@ object Events extends Controller {
     filtersParam.flatMap { filters =>
       Play.configuration.getString("appSecret").flatMap { appSecret =>
         val signature = signatureParam.get
-        play.Logger.info(filters + appSecret)
-        play.Logger.info(signature)
         val checkSignature = Codecs.md5((filters + appSecret).getBytes("UTF-8"))
         if (checkSignature == signature) Some(Json.parse(filters))
         else None
@@ -47,18 +45,15 @@ object Events extends Controller {
   }
 
   def applyFilters(listenerFilters: Option[JsValue], messageFilters: Option[JsValue]): Boolean = {
-    play.Logger.info(s"listenerFilters: $listenerFilters")
-    play.Logger.info(s"messageFilters: $messageFilters")
     if (messageFilters.isDefined) {
       if (listenerFilters.isDefined) {
         val mapListenerFilters = listenerFilters.map(Json.fromJson[Map[String, Seq[String]]](_)).get.get
         val mapMessageFilters = messageFilters.map(Json.fromJson[Map[String, Seq[String]]](_)).get.get
-        play.Logger.info(s"mapListenerFilters: $mapListenerFilters")
-        play.Logger.info(s"mapMessageFilters: $mapMessageFilters")
-        mapMessageFilters.flatMap { case (mFilterName, mFilterValues) =>
-          mapListenerFilters(mFilterName).map { fFilterValues =>
-            fFilterValues.exists(mFilterValues.contains(_))
+        mapMessageFilters.map { case (mFilterName, mFilterValues) =>
+          if (mapListenerFilters.isDefinedAt(mFilterName)) {
+            mapListenerFilters(mFilterName).exists(mFilterValues.contains(_))
           }
+          else false
         }.exists(_ == false) == false
       }
       else false
@@ -70,7 +65,7 @@ object Events extends Controller {
     Async {
       EventManager.listenEvents(appId, channelName).map { chan =>
         Ok.stream(chan
-          .through(Enumeratee.filter((message: EventMessage) => applyFilters(message.filters, filters)))
+          .through(Enumeratee.filter((message: EventMessage) => applyFilters(filters, message.filters)))
           .through(Enumeratee.map(_.data))
           .through(EventSource())).withHeaders(
           CONTENT_TYPE -> "text/event-stream",
