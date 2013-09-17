@@ -33,18 +33,19 @@ object Events extends Controller {
   }
 
   def publish(appId: String, channelName: String) = {
-    val appAuthToken = Play.configuration.getString(s"dxes.$appId.appAuthToken").getOrElse("")
-    Secured(appId, appAuthToken) { implicit request =>
-      val messageParam = request.body.asFormUrlEncoded.get("message").headOption
-      val filtersParam = request.body.asFormUrlEncoded.get("filters").headOption
-      if (messageParam.isDefined) {
-        EventManager.event(appId, channelName, Json.parse(messageParam.get), filtersParam.map(Json.parse(_)))
-        Ok
+    Play.configuration.getString(s"dxes.$appId.appAuthToken").map { appAuthToken =>
+      Secured(appId, appAuthToken) { implicit request =>
+        val messageParam = request.body.asFormUrlEncoded.get("message").headOption
+        val filtersParam = request.body.asFormUrlEncoded.get("filters").headOption
+        if (messageParam.isDefined) {
+          EventManager.event(appId, channelName, Json.parse(messageParam.get), filtersParam.map(Json.parse(_)))
+          Ok
+        }
+        else {
+          BadRequest
+        }
       }
-      else {
-        BadRequest
-      }
-    }
+    } getOrElse Action(NotFound)
   }
 
   def getSignedFilters(appId: String, filtersParam: Option[String], signatureParam: Option[String]): Option[JsValue] = {
