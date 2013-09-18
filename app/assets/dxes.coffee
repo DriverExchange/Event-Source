@@ -5,7 +5,6 @@ loadJSONP = do ->
 	(options) ->
 		name = "_jsonp_" + unique++;
 		url = options.url + (if options.url.indexOf("?") >= 0 then "&" else "?") + "callback=#{name}"
-		url += "&timestamp=" + new Date().getTime()
 
 		script = document.createElement("script")
 		script.type = "text/javascript"
