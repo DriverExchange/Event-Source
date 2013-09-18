@@ -19,8 +19,10 @@ loadJSONP = do ->
 		document.getElementsByTagName("head")[0].appendChild(script)
 
 getParams = (options) ->
+	params = "?ts=#{new Date().getTime()}"
 	if options.filters && options.signature
-		params = "?filters=#{options.filters}&signature=#{options.signature}"
+		params += "&filters=#{options.filters}&signature=#{options.signature}"
+	params
 
 window.dxes = (baseUrl, appId) ->
 
