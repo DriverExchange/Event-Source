@@ -35,7 +35,7 @@ window.dxes = (baseUrl, appId) ->
 		timeoutId = null
 		poll = ->
 			loadJSONP
-				url: baseUrl + "#{appId}/events/#{options.channel}/comet" + getParams(options)
+				url: baseUrl + "/#{appId}/events/#{options.channel}/comet" + getParams(options)
 				callback: (status, data) ->
 					options.received(data) if status == "success"
 					clearTimeout(timeoutId)
