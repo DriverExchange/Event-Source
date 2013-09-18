@@ -2,6 +2,7 @@ package jobs
 
 import play.api.libs.json._
 import play.api.libs.concurrent.Akka
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.iteratee._
 import play.api.libs.json._
 
@@ -62,6 +63,11 @@ object EventManager {
     val channel = Promise[Enumerator[EventMessage]]()
     val channelId = ChannelId(appId, channelName)
     actor ! Connect(channelId, channel)
+
+    channel.future.onFailure {
+      case e => play.Logger.error("manager: " + channelId.toString, e)
+    }
+
     channel.future
   }
 }

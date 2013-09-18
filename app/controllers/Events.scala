@@ -78,7 +78,7 @@ object Events extends Controller {
 
   def listenEventsSSE(appId: String, channelName: String, filters: Option[JsValue] = None) = { implicit request: Request[AnyContent] =>
     Async {
-      EventManager.listenEvents(appId, channelName).map { chan =>
+      val f = EventManager.listenEvents(appId, channelName).map { chan =>
         Ok.stream(chan
           .through(Enumeratee.filter((message: EventMessage) => applyFilters(filters, message.filters)))
           .through(Enumeratee.map(_.data))
@@ -87,6 +87,12 @@ object Events extends Controller {
           "Access-Control-Allow-Origin" -> "*"
         )
       }
+
+      f.onFailure {
+        case e => play.Logger.error("action: " + appId + "/" + channelName, e)
+      }
+
+      f
     }
   }
 
