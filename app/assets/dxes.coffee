@@ -9,6 +9,7 @@ loadJSONP = do ->
 		script = document.createElement("script")
 		script.type = "text/javascript"
 		script.src = url
+		script.async = true
 
 		window[name] = ->
 			options.callback.apply(null, arguments)
@@ -44,7 +45,8 @@ window.dxes = (baseUrl, appId) ->
 
 			timeoutId = setTimeout(poll, 60 * 1000)
 
-		poll()
+		# use setTimeout here otherwise the browser loading icon won't stop spinning
+		setTimeout(poll, 1)
 
 	subscribeSSE: subscribeSSE
 	subscribeJsonp: subscribeJsonp
