@@ -52,7 +52,7 @@ window.dxes = (baseUrl, appId) ->
 	subscribeSSE: subscribeSSE
 	subscribeJsonp: subscribeJsonp
 	subscribe: (options) ->
-		if EventSource
+		if !!window["EventSource"]
 			subscribeSSE(options)
 		else
 			subscribeJsonp(options)
