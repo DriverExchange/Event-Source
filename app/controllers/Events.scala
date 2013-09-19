@@ -101,7 +101,7 @@ object Events extends Controller {
     val longPoll = EventManager.listenEvents(appId, channelName)
       .map(_
         .through(Enumeratee.take(1))
-        .through(Enumeratee.map(chunk => s"""$callback("success", $chunk);\r\n""")))
+        .through(Enumeratee.map(message => s"""$callback("success", ${message.data});\r\n""")))
       .flatMap(_(Iteratee.consume()))
       .flatMap(_.run)
       .map(Ok(_))
