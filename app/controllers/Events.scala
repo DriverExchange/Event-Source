@@ -4,14 +4,11 @@ import play.api._
 import play.api.mvc._
 
 import play.api.libs.EventSource
-import play.api.libs.Comet
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.concurrent._
 import play.api.libs.iteratee._
 import play.api.libs.json._
 import play.api.libs.Codecs
-
-import Reads.mapReads
 
 import scala.concurrent.Future
 
@@ -64,12 +61,12 @@ object Events extends Controller {
       if (listenerFilters.isDefined) {
         val mapListenerFilters = listenerFilters.map(Json.fromJson[Map[String, Seq[String]]](_)).get.get
         val mapMessageFilters = messageFilters.map(Json.fromJson[Map[String, Seq[String]]](_)).get.get
-        mapMessageFilters.map { case (mFilterName, mFilterValues) =>
+        !mapMessageFilters.map { case (mFilterName, mFilterValues) =>
           if (mapListenerFilters.isDefinedAt(mFilterName)) {
             mapListenerFilters(mFilterName).exists(mFilterValues.contains(_))
           }
           else false
-        }.exists(_ == false) == false
+        }.exists(_ == false)
       }
       else false
     }
@@ -77,22 +74,14 @@ object Events extends Controller {
   }
 
   def listenEventsSSE(appId: String, channelName: String, filters: Option[JsValue] = None) = { implicit request: Request[AnyContent] =>
-    Async {
-      val f = EventManager.listenEvents(appId, channelName).map { chan =>
-        Ok.stream(chan
-          .through(Enumeratee.filter((message: EventMessage) => applyFilters(filters, message.filters)))
-          .through(Enumeratee.map(_.data))
-          .through(EventSource())).withHeaders(
-          CONTENT_TYPE -> "text/event-stream",
-          "Access-Control-Allow-Origin" -> "*"
-        )
-      }
-
-      f.onFailure {
-        case e => play.Logger.error("action: " + appId + "/" + channelName, e)
-      }
-
-      f
+    EventManager.listenEvents(appId, channelName).map { chan =>
+      Ok.chunked(chan
+        .through(Enumeratee.filter((message: EventMessage) => applyFilters(filters, message.filters)))
+        .through(Enumeratee.map(_.data))
+        .through(EventSource())).withHeaders(
+        CONTENT_TYPE -> "text/event-stream",
+        "Access-Control-Allow-Origin" -> "*"
+      )
     }
   }
 
@@ -104,24 +93,24 @@ object Events extends Controller {
         .through(Enumeratee.map(message => s"""$callback("success", ${message.data});\r\n""")))
       .flatMap(_(Iteratee.consume()))
       .flatMap(_.run)
-      .map(Ok(_))
+      .map(Ok(_).withHeaders(CONTENT_TYPE -> "text/javascript"))
     val timeout = Promise.timeout(Ok(s"""$callback("timeout");\r\n"""), 60 * 1000)
     val futureResult = Future.firstCompletedOf(Seq(longPoll, timeout))
 
-    Async(futureResult).withHeaders(CONTENT_TYPE -> "text/javascript")
+    futureResult
   }
 
-  def subscribe(appId: String, channelName: String, subscribeFunc: (String, String, Option[JsValue]) => Request[AnyContent] => Result) = Action { implicit request =>
+  def subscribe(appId: String, channelName: String, subscribeFunc: (String, String, Option[JsValue]) => Request[AnyContent] => Future[SimpleResult]) = Action.async { implicit request: Request[AnyContent] =>
     val filtersParam = request.queryString.get("filters").map(_.head)
     val signatureParam = request.queryString.get("signature").map(_.head)
     if (filtersParam.isDefined && !filtersParam.get.isEmpty && !signatureParam.isDefined) {
-      BadRequest("If 'filters' is defined, it must not be empty and there must be a 'signature'.")
+      Future(BadRequest("If 'filters' is defined, it must not be empty and there must be a 'signature'."))
     }
     else {
       if (filtersParam.isDefined) {
         getSignedFilters(appId, filtersParam, signatureParam)
           .map((filters: JsValue) => subscribeFunc(appId, channelName, Some(filters))(request))
-          .getOrElse(BadRequest("The filters does not match the signature."))
+          .getOrElse(Future(BadRequest("The filters does not match the signature.")))
       }
       else subscribeFunc(appId, channelName, None)(request)
     }
