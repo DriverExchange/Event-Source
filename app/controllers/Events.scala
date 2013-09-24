@@ -45,7 +45,9 @@ object Events extends Controller {
     } getOrElse Action(NotFound)
   }
 
-  def getSignedFilters(appId: String, filtersParam: Option[String], signatureParam: Option[String]): Option[JsValue] = {
+  def getSignedFilters(appId: String,
+                       filtersParam: Option[String],
+                       signatureParam: Option[String]): Option[JsValue] = {
     filtersParam.flatMap { filters =>
       Play.configuration.getString(s"dxes.$appId.appSecret").flatMap { appSecret =>
         val signature = signatureParam.get
@@ -73,7 +75,9 @@ object Events extends Controller {
     else true
   }
 
-  def listenEventsSSE(appId: String, channelName: String, filters: Option[JsValue] = None) = { implicit request: Request[AnyContent] =>
+  def listenEventsSSE(appId: String,
+                      channelName: String,
+                      filters: Option[JsValue] = None) = { implicit request: Request[AnyContent] =>
     EventManager.listenEvents(appId, channelName).map { chan =>
       Ok.chunked(chan
         .through(Enumeratee.filter((message: EventMessage) => applyFilters(filters, message.filters)))
@@ -85,7 +89,9 @@ object Events extends Controller {
     }
   }
 
-  def listenEventsComet(appId: String, channelName: String, filters: Option[JsValue] = None) = { implicit request: Request[AnyContent] =>
+  def listenEventsComet(appId: String,
+                        channelName: String,
+                        filters: Option[JsValue] = None) = { implicit request: Request[AnyContent] =>
     val callback = request.queryString.get("callback").flatMap(_.headOption).getOrElse("callback")
     val longPoll = EventManager.listenEvents(appId, channelName)
       .map(_
@@ -98,9 +104,11 @@ object Events extends Controller {
     Future.firstCompletedOf(Seq(longPoll, timeout))
   }
 
+  type SubscribeAction = (String, String, Option[JsValue]) => Request[AnyContent] => Future[SimpleResult]
+
   def subscribe(appId: String,
                 channelName: String,
-                subscribeFunc: (String, String, Option[JsValue]) => Request[AnyContent] => Future[SimpleResult]) = {
+                subscribeFunc: SubscribeAction) = {
     Action.async { implicit request: Request[AnyContent] =>
       val filtersParam = request.queryString.get("filters").map(_.head)
       val signatureParam = request.queryString.get("signature").map(_.head)
