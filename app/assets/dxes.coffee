@@ -60,5 +60,4 @@ window.dxes = (baseUrl, appId) ->
 		else
 			subscribeJsonp(options)
 
-
-
+window.dxesInit?()
