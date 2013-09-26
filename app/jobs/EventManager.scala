@@ -2,11 +2,11 @@ package jobs
 
 import play.api.libs.json._
 import play.api.libs.concurrent.Akka
-import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.iteratee._
 import play.api.libs.json._
 
-import akka.actor.{ Actor, Props }
+import akka.actor.{ Actor, Props, ActorSystem }
 import scala.concurrent.{ Future, Promise }
 
 case class ChannelId(appId: String, channelName: String) {
@@ -49,7 +49,7 @@ class EventManager extends Actor with Channels {
 object EventManager {
   import play.api.Play.current
 
-  private val actor = Akka.system.actorOf(Props(new EventManager()))
+  private val actor = ActorSystem("event-manager").actorOf(Props(new EventManager()))
 
   final case class NewEvent(channelId: ChannelId, message: EventMessage)
   final case class Connect(channelId: ChannelId, selectedChannel: Promise[Enumerator[EventMessage]])
