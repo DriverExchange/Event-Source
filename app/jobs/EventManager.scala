@@ -1,13 +1,12 @@
 package jobs
 
-import play.api.libs.json._
-import play.api.libs.concurrent.Akka
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.libs.iteratee._
 import play.api.libs.json._
 
 import akka.actor.{ Actor, Props, ActorSystem }
 import scala.concurrent.{ Future, Promise }
+import scala.collection._
 
 case class ChannelId(appId: String, channelName: String) {
   override def toString = appId + ":" + channelName
@@ -16,11 +15,10 @@ case class ChannelId(appId: String, channelName: String) {
 case class EventMessage(data: JsValue, filters: Option[JsValue] = None)
 
 trait Channels {
-  import scala.collection.mutable.Map
 
   type BroadcastChannel = (Enumerator[EventMessage], Concurrent.Channel[EventMessage])
 
-  private val channels = Map[String, BroadcastChannel]()
+  private val channels = mutable.Map[String, BroadcastChannel]()
 
   private def selectChannel(channelId: ChannelId): BroadcastChannel = {
     channels.get(channelId.toString) match {
@@ -41,13 +39,16 @@ class EventManager extends Actor with Channels {
   import EventManager._
 
   def receive = {
-    case NewEvent(channelId, message) => pushEvent(channelId)(message)
-    case Connect(channelId, channel) => channel.success(listenEvents(channelId))
+    case NewEvent(channelId, message) =>
+      play.Logger.debug(s"New event pushed to $channelId: $message)")
+      pushEvent(channelId)(message)
+    case Connect(channelId, channel) =>
+      play.Logger.debug(s"New connection to $channelId")
+      channel.success(listenEvents(channelId))
   }
 }
 
 object EventManager {
-  import play.api.Play.current
 
   private val actor = ActorSystem("event-manager").actorOf(Props(new EventManager()))
 

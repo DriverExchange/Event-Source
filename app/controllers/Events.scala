@@ -35,6 +35,7 @@ object Events extends Controller {
         val messageParam = request.body.asFormUrlEncoded.get("message").headOption
         val filtersParam = request.body.asFormUrlEncoded.get("filters").headOption
         if (messageParam.isDefined) {
+          play.Logger.debug(s"Send new event:\nfilter: ${filtersParam.getOrElse("-")}\nfilter:\n${messageParam.getOrElse("-")}")
           EventManager.event(appId, channelName, Json.parse(messageParam.get), filtersParam.map(Json.parse(_)))
           Ok
         }
